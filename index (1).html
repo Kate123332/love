@@ -1,0 +1,1472 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Котики любят тебя 🐾</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#3a2b25;
+    --paper:#fdf3e0;
+    --green1:#7ec850;
+    --green2:#5fa83a;
+    --green3:#3f7c2a;
+    --sky-day:#8fd0ff;
+    --txt-term:#ffe9b0;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;overflow:hidden;background:#1b2330;}
+  body{
+    font-family:'VT323', monospace;
+    -webkit-user-select:none;user-select:none;
+    touch-action:manipulation;
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Crect x='12' y='4' width='4' height='20' fill='%23fff' stroke='%23000' stroke-width='1'/%3E%3Crect x='4' y='12' width='20' height='4' fill='%23fff' stroke='%23000' stroke-width='1'/%3E%3C/svg%3E") 14 14, auto;
+  }
+  #app{position:fixed;inset:0;}
+
+  /* ---------- Сцена ---------- */
+  .scene{
+    position:absolute;inset:0;
+    display:none;
+    overflow:hidden;
+    image-rendering:pixelated;
+  }
+  .scene.active{display:block;}
+
+  /* Небо / фон по умолчанию */
+  .sky{position:absolute;inset:0;background:linear-gradient(#aee3ff 0%, #cdeeff 55%, #e8f7ff 75%);}
+  .ground{
+    position:absolute;left:0;right:0;bottom:0;height:24%;
+    background:
+      repeating-linear-gradient(90deg, var(--green2) 0 8px, var(--green1) 8px 16px);
+    border-top:6px solid var(--green3);
+    box-shadow: inset 0 8px 0 rgba(255,255,255,.15);
+  }
+  .ground::before{
+    content:"";position:absolute;top:-14px;left:0;right:0;height:14px;
+    background:repeating-linear-gradient(90deg,
+      var(--green3) 0 6px, transparent 6px 12px);
+    clip-path: polygon(0 100%,2% 0,4% 100%,6% 10%,8% 100%,10% 0,12% 100%,14% 20%,16% 100%,18% 0,20% 100%,22% 10%,24% 100%,26% 0,28% 100%,30% 20%,32% 100%,34% 0,36% 100%,38% 10%,40% 100%,42% 0,44% 100%,46% 20%,48% 100%,50% 0,52% 100%,54% 10%,56% 100%,58% 0,60% 100%,62% 20%,64% 100%,66% 0,68% 100%,70% 10%,72% 100%,74% 0,76% 100%,78% 20%,80% 100%,82% 0,84% 100%,86% 10%,88% 100%,90% 0,92% 100%,94% 20%,96% 100%,98% 0,100% 100%);
+  }
+
+  /* ---------- Терминальный текст ---------- */
+  .term-wrap{
+    position:absolute;
+    left:50%;transform:translateX(-50%);
+    top:9%;
+    width:min(680px,86vw);
+    z-index:20;
+  }
+  .term{
+    background:rgba(20,16,30,.82);
+    border:3px solid #ffd479;
+    border-radius:10px;
+    box-shadow:0 0 0 3px #1b1430, 0 10px 30px rgba(0,0,0,.45);
+    padding:18px 20px;
+    color:var(--txt-term);
+    font-family:'VT323',monospace;
+    font-size:clamp(18px,2.4vw,26px);
+    line-height:1.5;
+    letter-spacing:.5px;
+    min-height:60px;
+    text-shadow:0 0 6px rgba(255,210,120,.35);
+  }
+  .term .bar{
+    display:flex;gap:6px;margin:-6px -6px 10px;padding-bottom:8px;
+    border-bottom:1px dashed rgba(255,210,120,.4);
+  }
+  .term .bar i{width:12px;height:12px;border-radius:50%;display:inline-block;}
+  .term .bar i:nth-child(1){background:#ff5f57;}
+  .term .bar i:nth-child(2){background:#febc2e;}
+  .term .bar i:nth-child(3){background:#28c840;}
+  .caret{display:inline-block;width:10px;background:var(--txt-term);
+    animation:blink 1s steps(1) infinite;margin-left:2px;
+    -webkit-text-fill-color:transparent;}
+  @keyframes blink{50%{opacity:0;}}
+
+  /* ---------- Котик ---------- */
+  #cat{
+    position:absolute;
+    width:160px;height:200px;
+    bottom:16%;
+    left:-200px;
+    z-index:15;
+    image-rendering:pixelated;
+    transition:none;
+    pointer-events:none;
+    filter:drop-shadow(0 6px 4px rgba(0,0,0,.25));
+  }
+  #cat.flip{transform:scaleX(-1);}
+  .cat-bob{animation:bob .5s steps(2) infinite;}
+  @keyframes bob{50%{transform:translateY(-5px);}}
+  @keyframes flutter{0%,100%{transform:translateY(0) rotate(-4deg);}50%{transform:translateY(-16px) rotate(4deg);}}
+
+  /* ---------- Объекты сцен ---------- */
+  .obj{position:absolute;image-rendering:pixelated;z-index:14;}
+
+  /* ---------- Кнопки навигации ---------- */
+  .nav{
+    position:absolute;bottom:20px;left:50%;transform:translateX(-50%);
+    display:flex;gap:18px;z-index:40;align-items:center;
+  }
+  .pbtn{
+    font-family:'Press Start 2P',monospace;
+    font-size:12px;
+    color:#fff;
+    background:#e85d8a;
+    border:none;
+    padding:14px 18px;
+    border-radius:4px;
+    box-shadow:0 5px 0 #a83c63, 0 6px 10px rgba(0,0,0,.4);
+    cursor:pointer;
+    transition:transform .05s, box-shadow .05s;
+    image-rendering:pixelated;
+  }
+  .pbtn:active{transform:translateY(4px);box-shadow:0 1px 0 #a83c63;}
+  .pbtn:disabled{background:#9a9a9a;box-shadow:0 5px 0 #6c6c6c;cursor:not-allowed;opacity:.7;}
+  .pbtn.green{background:#5fb85f;box-shadow:0 5px 0 #3f8a3f,0 6px 10px rgba(0,0,0,.4);}
+
+  /* Прогресс */
+  .progress{
+    position:absolute;top:10px;left:50%;transform:translateX(-50%);
+    display:flex;gap:5px;z-index:40;flex-wrap:wrap;
+    width:min(560px,90vw);justify-content:center;
+  }
+  .progress i{width:9px;height:9px;background:rgba(255,255,255,.4);
+    border:1px solid rgba(0,0,0,.3);border-radius:2px;}
+  .progress i.on{background:#ffd479;}
+
+  /* ---------- Кнопки выбора (стр.18) ---------- */
+  .choices{position:absolute;left:0;right:0;bottom:24%;
+    display:flex;justify-content:center;gap:30px;z-index:45;}
+  #yesBtn{
+    z-index:46;
+    font-family:'Press Start 2P',monospace;font-size:13px;color:#fff;
+    background:#5fb85f;border:none;padding:18px 22px;border-radius:6px;
+    box-shadow:0 6px 0 #3f8a3f,0 8px 14px rgba(0,0,0,.4);cursor:pointer;
+  }
+  #yesBtn:active{transform:translateY(4px);}
+  #noBtn{
+    z-index:46;
+    font-family:'Press Start 2P',monospace;font-size:13px;color:#fff;
+    background:#e85d5d;border:none;padding:18px 22px;border-radius:6px;
+    box-shadow:0 6px 0 #a83c3c;transition:left .14s ease;
+  }
+
+  /* ---------- Стартовый оверлей ---------- */
+  #start{
+    position:fixed;inset:0;z-index:100;
+    background:radial-gradient(circle at 50% 40%, #2b3a55, #131a26);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;color:#ffe9b0;gap:26px;padding:24px;
+  }
+  #start h1{font-family:'Press Start 2P',monospace;font-size:clamp(16px,3.4vw,30px);
+    line-height:1.6;color:#ffd479;text-shadow:0 4px 0 #a83c63;}
+  #start p{font-size:clamp(20px,3vw,26px);max-width:520px;line-height:1.4;}
+  #startBtn{font-family:'Press Start 2P',monospace;font-size:14px;color:#fff;
+    background:#e85d8a;border:none;padding:20px 26px;border-radius:6px;
+    box-shadow:0 6px 0 #a83c63,0 8px 16px rgba(0,0,0,.5);cursor:pointer;}
+  #startBtn:active{transform:translateY(4px);}
+
+  /* Музыка */
+  /* Падающие сердечки */
+  .heart{position:absolute;top:-30px;z-index:5;font-size:18px;opacity:.8;
+    animation:fall linear forwards;pointer-events:none;}
+  @keyframes fall{to{transform:translateY(110vh) rotate(360deg);opacity:0;}}
+
+  /* финальные титры */
+  #credits{position:absolute;inset:0;z-index:30;display:none;
+    flex-direction:column;align-items:center;justify-content:flex-start;
+    color:#ffe9b0;text-align:center;padding-top:30px;}
+  .creditRoll{font-size:clamp(20px,3vw,26px);line-height:1.7;
+    animation:roll 26s linear forwards;}
+  @keyframes roll{from{transform:translateY(90vh);}to{transform:translateY(-120%);}}
+
+  @media(max-width:520px){
+    #cat{width:120px;height:150px;}
+    .term{font-size:18px;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Сцены создаются скриптом -->
+
+  <div class="progress" id="progress"></div>
+
+  <div class="nav" id="nav">
+    <button class="pbtn" id="prev">◀ назад</button>
+    <button class="pbtn" id="next">вперёд ▶</button>
+  </div>
+</div>
+
+<div id="start">
+  <h1>Котики любят тебя</h1>
+  <p>Привет :) Здесь спрятано кое-что важное.<br><br>Лови курсором котика, листай странички<br>и читай до самого конца.</p>
+  <button id="startBtn">▶ начать</button>
+</div>
+
+<script>
+/* ============================================================
+   1. ПИКСЕЛЬНЫЙ КОТИК (рисуется на canvas)
+   Палитра:  . прозр  o контур  G оранж  g тёмн.оранж
+             W белый  P розовый нос  E глаз
+   ============================================================ */
+const PAL = {
+  '.':null,
+  'o':'#5a2733',   // тёмно-бордовый контур
+  'G':'#f5973d',   // основной оранж
+  'g':'#e07a2a',   // оранж средний
+  'h':'#d35e2a',   // оранж тёмная полоска
+  'L':'#ffc27a',   // светлый оранж/блик
+  'W':'#fdf3e0',   // кремовый белый
+  'w':'#ecd9be',   // кремовый тень
+  'P':'#e87f9a',   // розовый
+  'p':'#f6c9a8',   // внутр. ушей (кремово-розовый)
+  'E':'#3a2230',   // глаз тёмный
+  'S':'#ffffff',   // блик
+  'N':'#d35e2a'    // нос/мордочка-линия
+};
+// 32x40 — сидящий котик по референсу (смотрит на нас, 3/4)
+const CAT_SIT = [
+"................................",
+"................................",
+".....oo...............oo........",
+"....oGLo.............oGLo.......",
+"...oGLpGo...........oGLpGo......",
+"...oGppGo..........oGpppGo......",
+"..oGLppGoooooooooooGGpppGo......",
+"..oGLhGGGGGGGGGGGGGGGGhGGo......",
+".oGLGGGhGGGGGGGGGGGGhGGGGGo.....",
+".oGGGGGhhGGGGGGGGGGhhGGGGGo.....",
+".oGGGGGGGGGGGGGGGGGGGGGGGGo.....",
+".oGGGGGGGGGGGGGGGGGGGGGGGGo.....",
+".oGGGGoooGGGGGGGGGGoooGGGGo.....",
+".oGGGoEEEoGGGGGGGGoEEEoGGGo.....",
+".oGGoEESEoGGGGGGGGoEESEoGGo.....",
+".oGGoEEEEoGGGGGGGGoEEEEoGGo.....",
+".oGGGoEEoGGGGNNGGGGoEEoGGGo.....",
+".oGGGGGGGGGGoNNoGGGGGGGGGGo.....",
+".oGGGGGGGGGWWNNWWGGGGGGGGGo.....",
+"..oGhhhGGGWWWWWWWWGGhhhGGo......",
+"..oGGGGGGGWWWWWWWWGGGGGGGo......",
+"..LWoGGGGGWWWWWWWWGGGGGGo.......",
+"oWWWoGhhhGWWWWWWWWGhhhGGo.......",
+"oWWoGGGGGGGWWWWWWGGGGGGGo.......",
+".oooGGGGGGGWWWWWWGGGGGGGo.......",
+"..oGhhhGGGGGWWWWGGhhhGGGo.......",
+"..oGGGGGGGGGWWWWGGGGGGGGo.......",
+"..oGGGGGGGGGWWWWGGGGGGGGo.......",
+"..oGhhhGGGGGWWWWGGhhhGGGo.......",
+"...oGGGGGGGGGWWGGGGGGGGGo.......",
+"...oGGGGGGGGGWWGGGGGGGGGo.......",
+"...oGGGGGGGGGWWGGGGGGGGGo.......",
+"...oGGGGGGGGGWWGGGGGGGGGo.......",
+"...oWWWoGGGGoWWoGGGoWWWoo.......",
+"..oWWWWoGGGGoWWoGGGoWWWWo.......",
+"..oWWWWoGGGGoWWoGGGoWWWWo.......",
+"..oWWWWoGGGGoWWoGGGoWWWWo.......",
+"...oooo..oo..oo..oo..ooo........",
+"................................",
+"................................"
+];
+// 32x40 — ловит/тянется вверх (передние лапки подняты, рот приоткрыт)
+const CAT_JUMP = [
+".....oo...............oo........",
+"....oGLo.............oGLo.......",
+"...oGLpGo...........oGLpGo......",
+"...oGppGo..........oGpppGo......",
+"..oGLppGoooooooooooGGpppGo......",
+"..oGLhGGGGGGGGGGGGGGGGhGGo......",
+".oGLGGGhGGGGGGGGGGGGhGGGGGo.....",
+".oGGGGGhhGGGGGGGGGGhhGGGGGo.....",
+".oGGGGGGGGGGGGGGGGGGGGGGGGo.....",
+".oGGGGoooGGGGGGGGGGoooGGGGo.....",
+".oGGGoEEEoGGGGGGGGoEEEoGGGo.....",
+".oGGoEESEoGGGGGGGGoEESEoGGo.....",
+".oGGoEEEEoGGGGGGGGoEEEEoGGo.....",
+".oGGGoEEoGGGoNNoGGGoEEoGGGo.....",
+".oGGGGGGGGGoNNNNoGGGGGGGGGo.....",
+"oWoGGGGGGGWWNNNNWWGGGGGGGoWo....",
+"WWoGGhhhGGWWWWWWWWGhhhGGoWWo....",
+"oWoGGGGGGGWWWWWWWWGGGGGGGoWo....",
+".ooGGGGGGGWWWWWWWWGGGGGGoo......",
+"..oGhhhGGGGWWWWWWGGhhhGGo.......",
+"..oGGGGGGGGWWWWWWGGGGGGGo.......",
+"..oGGGGGGGGWWWWWWGGGGGGGo.......",
+"..oGhhhGGGGGWWWWGGhhhGGGo.......",
+"..oGGGGGGGGGWWWWGGGGGGGGo.......",
+"...oGGGGGGGGWWWWGGGGGGGGo.......",
+"...oGhhhGGGGWWWWGGhhhGGGo.......",
+"...oGGGGGGGGGWWGGGGGGGGo........",
+"...oGGGGGGGGGWWGGGGGGGGo........",
+"...oGGGGGGGGGWWGGGGGGGGo........",
+"...oWWWoGGGGoWWoGGGoWWWo........",
+"..oWWWWoGGGGoWWoGGGoWWWWo.......",
+"..oWWWWoGGGGoWWoGGGoWWWWo.......",
+"..oWWWWoGGGGoWWoGGGoWWWWo.......",
+"...oooo..oo..oo..oo..ooo........",
+"................................",
+"................................",
+"................................",
+"................................",
+"................................",
+"................................"
+];
+// 32x40 — испуганный (уши прижаты, глаза-щёлочки, припал)
+const CAT_SCARED = [
+"................................",
+"................................",
+"...o..................o.........",
+"..oGo................oGo........",
+".ohGGo..............ohGGo.......",
+".oGppGoooooooooooooGGppGo.......",
+".oGLhGGGGGGGGGGGGGGGGhGGo.......",
+"oGLGGGhGGGGGGGGGGGGhGGGGGo......",
+"oGGGGGhhGGGGGGGGGGhhGGGGGo......",
+"oGGGGGGGGGGGGGGGGGGGGGGGGo......",
+"oGGoooGGGGGGGGGGGGGGoooGGo......",
+"oGoEEEoGGGGGGGGGGGGoEEEoGo......",
+"oGoEEEoGGGGNNGGGGGGoEEEoGo......",
+"oGGGGGGGGGoNNoGGGGGGGGGGGo......",
+"oGGGGGGGGWWNNWWGGGGGGGGGGo......",
+".oGhhhGGGWWWWWWWWGGhhhGGo.......",
+".oGGGGGGGWWWWWWWWGGGGGGGo.......",
+".oGGGGGGGGWWWWWWGGGGGGGGo.......",
+".oGhhhGGGGWWWWWWGGhhhGGGo.......",
+".oGGGGGGGGGWWWWGGGGGGGGGo.......",
+".oGGGGGGGGGWWWWGGGGGGGGo........",
+".oGhhhGGGGGWWWWGGhhhGGGo........",
+".oGGGGGGGGGGWWGGGGGGGGGo........",
+".oGGGGGGGGGGWWGGGGGGGGo.........",
+".oWWWoGGGGGoWWoGGGGoWWWo........",
+".oWWWoGGGGGoWWoGGGGoWWWo........",
+"..ooo..ooooo..ooooo.ooo.........",
+"................................",
+"................................",
+"................................",
+"................................",
+"................................",
+"................................",
+"................................",
+"................................",
+"................................",
+"................................",
+"................................",
+"................................",
+"................................"
+];
+// 32x40 — счастливый, глаза-дуги (закрытые от удовольствия)
+const CAT_HAPPY = [
+"................................",
+"................................",
+".....oo...............oo........",
+"....oGLo.............oGLo.......",
+"...oGLpGo...........oGLpGo......",
+"...oGppGo..........oGpppGo......",
+"..oGLppGoooooooooooGGpppGo......",
+"..oGLhGGGGGGGGGGGGGGGGhGGo......",
+".oGLGGGhGGGGGGGGGGGGhGGGGGo.....",
+".oGGGGGhhGGGGGGGGGGhhGGGGGo.....",
+".oGGGGGGGGGGGGGGGGGGGGGGGGo.....",
+".oGGGGGGGGGGGGGGGGGGGGGGGGo.....",
+".oGGGooooGGGGGGGGooooGGGGGo.....",
+".oGGoEEEEoGGGGGGoEEEEoGGGGo.....",
+".oGGGGGGGGGGGGGGGGGGGGGGGGo.....",
+".oGGGGGGGGGGGGGGGGGGGGGGGGo.....",
+".oGGGoEEoGGGGNNGGGGoEEoGGGo.....",
+".oGGGGGGGGGGoNNoGGGGGGGGGGo.....",
+".oGGGGGGGGGWWNNWWGGGGGGGGGo.....",
+"..oGhhhGGGWWWWWWWWGGhhhGGo......",
+"..oGGGGGGGWWWWWWWWGGGGGGGo......",
+"..LWoGGGGGWWWWWWWWGGGGGGo.......",
+"oWWWoGhhhGWWWWWWWWGhhhGGo.......",
+"oWWoGGGGGGGWWWWWWGGGGGGGo.......",
+".oooGGGGGGGWWWWWWGGGGGGGo.......",
+"..oGhhhGGGGGWWWWGGhhhGGGo.......",
+"..oGGGGGGGGGWWWWGGGGGGGGo.......",
+"..oGGGGGGGGGWWWWGGGGGGGGo.......",
+"..oGhhhGGGGGWWWWGGhhhGGGo.......",
+"...oGGGGGGGGGWWGGGGGGGGGo.......",
+"...oGGGGGGGGGWWGGGGGGGGGo.......",
+"...oGGGGGGGGGWWGGGGGGGGGo.......",
+"...oGGGGGGGGGWWGGGGGGGGGo.......",
+"...oWWWoGGGGoWWoGGGoWWWoo.......",
+"..oWWWWoGGGGoWWoGGGoWWWWo.......",
+"..oWWWWoGGGGoWWoGGGoWWWWo.......",
+"..oWWWWoGGGGoWWoGGGoWWWWo.......",
+"...oooo..oo..oo..oo..ooo........",
+"................................",
+"................................"
+];
+// 32x40 — шаг А (ходьба: передняя левая лапа вперёд)
+const CAT_WALK_A = [
+"................................",
+"................................",
+".....oo...............oo........",
+"....oGLo.............oGLo.......",
+"...oGLpGo...........oGLpGo......",
+"...oGppGo..........oGpppGo......",
+"..oGLppGoooooooooooGGpppGo......",
+"..oGLhGGGGGGGGGGGGGGGGhGGo......",
+".oGLGGGhGGGGGGGGGGGGhGGGGGo.....",
+".oGGGGGhhGGGGGGGGGGhhGGGGGo.....",
+".oGGGGGGGGGGGGGGGGGGGGGGGGo.....",
+".oGGGGGGGGGGGGGGGGGGGGGGGGo.....",
+".oGGGGoooGGGGGGGGGGoooGGGGo.....",
+".oGGGoEEEoGGGGGGGGoEEEoGGGo.....",
+".oGGoEESEoGGGGGGGGoEESEoGGo.....",
+".oGGoEEEEoGGGGGGGGoEEEEoGGo.....",
+".oGGGoEEoGGGGNNGGGGoEEoGGGo.....",
+".oGGGGGGGGGGoNNoGGGGGGGGGGo.....",
+".oGGGGGGGGGWWNNWWGGGGGGGGGo.....",
+"..oGhhhGGGWWWWWWWWGGhhhGGo......",
+"..oGGGGGGGWWWWWWWWGGGGGGGo......",
+"..LWoGGGGGWWWWWWWWGGGGGGo.......",
+"oWWWoGhhhGWWWWWWWWGhhhGGo.......",
+"oWWoGGGGGGGWWWWWWGGGGGGGo.......",
+".oooGGGGGGGWWWWWWGGGGGGGo.......",
+"..oGhhhGGGGGWWWWGGhhhGGGo.......",
+"..oGGGGGGGGGWWWWGGGGGGGGo.......",
+"..oGGGGGGGGGWWWWGGGGGGGGo.......",
+"..oGhhhGGGGGWWWWGGhhhGGGo.......",
+"...oGGGGGGGGGWWGGGGGGGGGo.......",
+"...oGGGGGGGGGWWGGGGGGGGGo.......",
+"...oGGGGGGGGGWWGGGGGGGGGo.......",
+"..oWWWoGGGGGGWWGGGGGGoWWWo......",
+".oWWWWoGGGGGoWWoGGGGGoWWWWo.....",
+".oWWWWoGGGGGoWWoGGGGGoWWWWo.....",
+".oWWWWoGGGGGoWWoGGGGGGoWWo......",
+"..oooo...oo..oo..oo...ooo.......",
+"................................",
+"................................",
+"................................"
+];
+// 32x40 — шаг Б (ходьба: другая фаза, лапы наоборот)
+const CAT_WALK_B = [
+"................................",
+"................................",
+".....oo...............oo........",
+"....oGLo.............oGLo.......",
+"...oGLpGo...........oGLpGo......",
+"...oGppGo..........oGpppGo......",
+"..oGLppGoooooooooooGGpppGo......",
+"..oGLhGGGGGGGGGGGGGGGGhGGo......",
+".oGLGGGhGGGGGGGGGGGGhGGGGGo.....",
+".oGGGGGhhGGGGGGGGGGhhGGGGGo.....",
+".oGGGGGGGGGGGGGGGGGGGGGGGGo.....",
+".oGGGGGGGGGGGGGGGGGGGGGGGGo.....",
+".oGGGGoooGGGGGGGGGGoooGGGGo.....",
+".oGGGoEEEoGGGGGGGGoEEEoGGGo.....",
+".oGGoEESEoGGGGGGGGoEESEoGGo.....",
+".oGGoEEEEoGGGGGGGGoEEEEoGGo.....",
+".oGGGoEEoGGGGNNGGGGoEEoGGGo.....",
+".oGGGGGGGGGGoNNoGGGGGGGGGGo.....",
+".oGGGGGGGGGWWNNWWGGGGGGGGGo.....",
+"..oGhhhGGGWWWWWWWWGGhhhGGo......",
+"..oGGGGGGGWWWWWWWWGGGGGGGo......",
+"..LWoGGGGGWWWWWWWWGGGGGGo.......",
+"oWWWoGhhhGWWWWWWWWGhhhGGo.......",
+"oWWoGGGGGGGWWWWWWGGGGGGGo.......",
+".oooGGGGGGGWWWWWWGGGGGGGo.......",
+"..oGhhhGGGGGWWWWGGhhhGGGo.......",
+"..oGGGGGGGGGWWWWGGGGGGGGo.......",
+"..oGGGGGGGGGWWWWGGGGGGGGo.......",
+"..oGhhhGGGGGWWWWGGhhhGGGo.......",
+"...oGGGGGGGGGWWGGGGGGGGGo.......",
+"...oGGGGGGGGGWWGGGGGGGGGo.......",
+"...oGGGGGGGGGWWGGGGGGGGGo.......",
+"...oGGoWWWoGoWWoGoWWWoGGo.......",
+"..oGoWWWWoGGoWWoGGoWWWWoGo......",
+"..oGoWWWWoGGoWWoGGoWWWWoGo......",
+"...ooWWWWoGGoWWoGGoWWWWoo.......",
+"....ooooo.oo..oo..ooooo.........",
+"................................",
+"................................",
+"................................"
+];
+// 32x40 — лазает по дереву (вытянут вверх, цепляется лапками)
+const CAT_CLIMB = [
+"....oo................oo........",
+"...oGLo..............oGLo.......",
+"..oGLpGo............oGLpGo......",
+"..oGppGoWW........WWoGpppGo.....",
+".oGLppGoWWooooooooWWoGpppGo.....",
+".oGLhGGGGGGGGGGGGGGGGGhGGo......",
+".oGLGGGhGGGGGGGGGGGGhGGGGo......",
+".oGGGGGhhGGGGGGGGGGhhGGGGo......",
+".oGGGGGGGGGGGGGGGGGGGGGGGo......",
+".oGGGGoooGGGGGGGGGGoooGGGo......",
+".oGGoEEEEoGGGGGGGGoEEEEoGGo.....",
+".oGGoEESEoGGGGGGGGoEESEoGGo.....",
+".oGGGoEEoGGGGNNGGGGoEEoGGGo.....",
+".oGGGGGGGGGGoNNoGGGGGGGGGGo.....",
+".oGGGGGGGGGWWNNWWGGGGGGGGGo.....",
+"..oGhhhGGGWWWWWWWWGGhhhGGo......",
+"..oGGGGGGGWWWWWWWWGGGGGGGo......",
+"..oGGGGGGGWWWWWWWWGGGGGGGo......",
+"..oGhhhGGGGWWWWWWGGhhhGGGo......",
+"..oGGGGGGGGWWWWWWGGGGGGGGo......",
+"..oGGGGGGGGWWWWWWGGGGGGGGo......",
+"..oGhhhGGGGGWWWWGGhhhGGGo.......",
+"..oGGGGGGGGGWWWWGGGGGGGGo.......",
+"..oGGGGGGGGGWWWWGGGGGGGGo.......",
+"..oGhhhGGGGGWWWWGGhhhGGGo.......",
+"...oGGGGGGGGGWWGGGGGGGGGo.......",
+"...oGGGGGGGGGWWGGGGGGGGGo.......",
+"...oGGGGGGGGGWWGGGGGGGGGo.......",
+"...oWWWoGGGGGWWGGGGGoWWWo.......",
+"...oWWWoGGGGGWWGGGGGoWWWo.......",
+"....ooo..oo..oo..oo..ooo........",
+"................................",
+"................................",
+"................................",
+"................................",
+"................................",
+"................................",
+"................................",
+"................................",
+"................................"
+];
+
+function drawSprite(canvas, grid, scale){
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(let y=0;y<grid.length;y++){
+    for(let x=0;x<grid[y].length;x++){
+      const c = PAL[grid[y][x]];
+      if(c){ ctx.fillStyle=c; ctx.fillRect(x*scale,y*scale,scale,scale); }
+    }
+  }
+}
+
+// Котик-canvas (32x40 сетка -> 160x200 при scale 5)
+const CAT_PX = 32, CAT_GH = 40, CAT_W = 160, CAT_H = 200;
+const cat = document.createElement('canvas');
+cat.id='cat'; cat.width=CAT_W; cat.height=CAT_H;
+document.getElementById('app').appendChild(cat);
+let catState='sit';
+let walkPhase=0; // 0/1 для чередования шагов
+function catGrid(){
+  if(catState==='walk') return walkPhase ? CAT_WALK_B : CAT_WALK_A;
+  if(catState==='climb') return CAT_CLIMB;
+  if(catState==='jump') return CAT_JUMP;
+  if(catState==='scared') return CAT_SCARED;
+  if(catState==='happy') return CAT_HAPPY;
+  return CAT_SIT;
+}
+function paintCat(){ drawSprite(cat, catGrid(), cat.width/CAT_PX); }
+paintCat();
+
+/* ============================================================
+   1b. ПИКСЕЛЬ-ОБЪЕКТЫ СЦЕН (каждый со своей палитрой)
+   ============================================================ */
+function makeObjCanvas(grid, pal, px, sizePx){
+  const cv=document.createElement('canvas');
+  cv.width=sizePx; cv.height=sizePx; cv.className='obj';
+  const ctx=cv.getContext('2d');
+  const sc=sizePx/px;
+  for(let y=0;y<grid.length;y++)for(let x=0;x<grid[y].length;x++){
+    const c=pal[grid[y][x]]; if(c){ctx.fillStyle=c;ctx.fillRect(x*sc,y*sc,sc,sc);}
+  }
+  return cv;
+}
+
+// БАБОЧКА 16x16
+const BFLY={'.':null,'o':'#3a2218','W':'#ffd86b','w':'#ff9a3c','B':'#e85d8a','d':'#7a2b18'};
+const SP_BFLY=[
+"................","....o....o......",".oWWoWo.oWoWWo..","oWwWWWoooWWwWWo.",
+"oWWwWWBdBWWwWWo.","oWWWwWdBdWwWWWo.",".oWWwWdBdWwWWo..","..owWWdBdWWwo...",
+"...oWWdBdWWo....","....oWdBdWo.....",".....odBdo......","......dBd.......",
+"......dBd.......",".....obobo......","................","................"];
+
+// ДЕРЕВО 28x40 (большое, выше котика, толстый ствол для лазания)
+const TREE={'.':null,'o':'#22331a','C':'#4e8a3a','c':'#3c6e2b','L':'#7cbe52','d':'#356326','T':'#8a5a30','t':'#5c3518','k':'#6e4622'};
+const SP_TREE=[
+"............oooo............",
+"..........ooCCCCoo..........",
+".........oCLLLLLLCo.........",
+".......ooCLLLLLLLLCoo.......",
+"......oCLLLLLLLLLLLLCo......",
+".....oCLLLLLLLLLLLLLLCo.....",
+"....oCLLdLLLLLLLLLLdLLCo....",
+"...oCLLLLLLLLLLLLLLLLLLCo...",
+"..oCLLLLLLLLLLLLLLLLLLLLCo..",
+".oCLLLLLLLLLLLLLLLLLLLLLLCo.",
+".oCLLLLLLLdLLLLLLLLdLLLLLCo.",
+"oCLLLLLLLLLLLLLLLLLLLLLLLLCo",
+"oCLLLLLLLLLLLLLLLLLLLLLLLLCo",
+"oCcLLLLLLLLLLLLLLLLLLLLLLCo.",
+".oCLLLLLLLLLLLLLLLLLLLLLCo..",
+".oCLLLLLLLLdLLLLLLdLLLLLCo..",
+"..oCLLLLLLLLLLLLLLLLLLLCo...",
+"...oCCLLLLLLLLLLLLLLLLCo....",
+"....oCCLLLLLLLLLLLLLCCo.....",
+".....ooCCCLLLLLLCCCoo.......",
+".......ooCCCCCCCCoo.........",
+"..........oTTTTo...........",
+"..........oTktTo...........",
+"..........oTkkTo...........",
+"..........tTkkTt...........",
+"..........oTkkTo...........",
+".........otTkkTto..........",
+".........oTkktkTo..........",
+".........oTkkkkTo..........",
+".........tTkktkTt..........",
+".........oTkkkkTo..........",
+".........oTkktkTo..........",
+"........otTkkkkTto.........",
+"........oTkktkkkTo.........",
+"........oTkkkkktTo.........",
+"........tTkktkkkTt.........",
+".......otTkkkkkkTto........",
+"......ooooooooooooooo......",
+".....ttttttttttttttttt.....",
+"....ttttttttttttttttttt...."];
+
+// СУШИ/РОЛЛЫ 20x12
+const SUSHI={'.':null,'o':'#2a1c16','N':'#2f2f3a','R':'#fff3e0','S':'#ff7a59','A':'#ff9d7a','G':'#5fb85f','F':'#ffb84d'};
+const SP_SUSHI=[
+"....................","..oooo......oooo....",".oNRRNo....oNRRNo...","oNRSANRo..oNRFGRo..o",
+"oNRSANRo..oNRFGRo..o","oNRRRNo...oNRRRNo...",".oNNNo.....oNNNo....","..ooo.......ooo.....",
+"....oooooooooo......","...oFFFFFFFFFFo.....","...oFAFAFAFAFAo.....","....oooooooooo......"];
+
+// БЕЛАЯ КРЫСКА 16x14
+const RAT={'.':null,'o':'#5a4a4a','W':'#ffffff','w':'#e6dede','P':'#f7adc2','E':'#1c140f','T':'#f7adc2'};
+const SP_RAT=[
+".....oo....oo...","....oWWo..oWWo..","....oWPWooWPWo..","...oWWWWWWWWWWo.","..oWWWEWWWEWWWo.",
+"..oWWWWWPWWWWWo.","..oWWWWWWWWWWWo.","...oWWWWWWWWWo..","....oWWWWWWWo...","...oWwWWWWwWo...",
+"..oWwWWWWWWwWo..","..oWWWWWWWWWWo.T","...ooooooooo.TT",".............T.."];
+
+// СОБАКА 22x16
+const DOG={'.':null,'o':'#2a1c16','B':'#8a4a28','b':'#6e3a1e','W':'#fff6e9','E':'#1c140f','P':'#2a1c16','T':'#8a4a28'};
+const SP_DOG=[
+"......................",".oo................TT.","oBBo..............oTTo","oBBBoooooooooo...oBTo.",
+"oBBBBBBBBBBBBBoooBBBo..","oBbBBBBBBBBBBBBBBBBo...","oBBoEoBBBBBBBoEoBBBo...","oBBBBBBBWWWWBBBBBBBo...",
+"oBBBBBBWWPPWWBBBBBBo...",".oBBBBBWWWWWWBBBBBo....","..oBBBBBWWWWBBBBBo.....","...oWBBBBBBBBBBWo......",
+"...oWoBBBBBBBBoWo......","...oWoBBoooBBoWo.......","...oWo.oWo.oWo.........","...ooo.ooo.ooo........"];
+
+// СЕРАЯ КОШЕЧКА 18x18 (с сердечком)
+const GCAT={'.':null,'o':'#2a2730','G':'#9aa0ad','g':'#7d8390','W':'#eef0f4','P':'#e87f9a','E':'#1c140f','H':'#e85d8a'};
+const SP_GCAT=[
+"...............HH.","..oo......oo..HHHH",".oGGo....oGGo.HHHH",".oGgGooooGgGo..HH.","oGGGGGGGGGGGGo..H.",
+"oGoEoGGGGoEoGGo...","oGGGGGGGGGGGGGo...","oGGGWGPPGWGGGGo...",".oGGWWWWWWGGGo....",".oGgWWWWWWgGGo....",
+"..oGGWWWWGGGo.....","..oGGGWWGGGGo.oo..","..oGGGGGGGGGoGGo..","..oWWoGGGoWWoGGo..","...ooo.ooo.oooo..",
+".................",".................","................."];
+
+// ЦВЕТОЧЕК 14x16
+const FLOWER={'.':null,'o':'#23341a','P':'#ff7aa8','p':'#ff9ec2','Y':'#ffd86b','G':'#4e8a3a','g':'#3c6e2b'};
+const SP_FLOWER=[
+".....opo......","...oppPppo....","..oPpPPPpPo...","..oPPYYYPPo...","..oPPYYYPPo...",
+"..oPpPPPpPo...","...oppPppo....",".....oGo......","....oGGGo.....","..o.oGGo.o....",
+".oGooGGooGo...","..oGGGGGGo....","....oGGo......","....oGGo......","....oGGo......","...ooooo......"];
+
+// СТАКАН 12x16
+const GLASS={'.':null,'o':'#2a3a4a','W':'#bfe6ff','w':'#9ad0f0','S':'#ffffff'};
+const SP_GLASS=[
+"............","oWWWWWWWWWWo",".oWwwwwwwWo.",".oWSwwwwwWo.",".oWwwwwwwWo.",".oWwwwwwwWo.",
+".oWwwwwwwWo.","..oWwwwwWo..","..oWwwwwWo..","..oWwwwwWo..","..oWwwwwWo..","...oWwwWo...",
+"...oWwwWo...","...oooooo...","............","............"];
+
+// ДОМИК 22x20
+const HOUSE={'.':null,'o':'#2a1c16','R':'#c0533a','r':'#9a3f2c','W':'#f0d9a8','w':'#d8bd86','D':'#7a4a24','Y':'#ffd86b','G':'#3c6e2b'};
+const SP_HOUSE=[
+"..........o...........",".........oRo..........","........oRRRo.........",".......oRRRRRo........",
+"......oRRRRRRRo.......",".....oRRRRRRRRRo......","....oRRRRRRRRRRRo.....","...orRRRRRRRRRRRro....",
+"..ooooooooooooooooo...","..oWWWWWWWWWWWWWWWo...","..oWWoYYoWWoDDDoWWo...","..oWWoYYoWWoDYDoWWo...",
+"..oWWWWWWWWoDYDoWWo...","..oWWWWWWWWoDDDoWWo...","..oWWWWWWWWoDDDoWWo...","..ooooooooooooooooo...",
+".GGGGGGGGGGGGGGGGGGG.","GGGGGGGGGGGGGGGGGGGGG","GGGGGGGGGGGGGGGGGGGGG","ooooooooooooooooooooo"];
+
+// СТОЛ 24x16
+const TABLE={'.':null,'o':'#2a1c16','T':'#8a5a30','t':'#6e4622','W':'#bfe6ff','S':'#ffffff'};
+const SP_TABLE=[
+"........................","........oooo............",".......oWWWWo...........",".......oWSWWo...........",".......oWWWWo...........",
+".......oWWWWo...........","........oWWo............","ooooooooooooooooooooooo.","oTTTTTTTTTTTTTTTTTTTTTo.","otTTTTTTTTTTTTTTTTTTTto.",
+"ooooooooooooooooooooooo.","...oTo..........oTo.....","...oto..........oto.....","...oTo..........oTo.....","...oto..........oto.....","...ooo..........ooo....."];
+
+// МЯЧИК 14x14
+const BALL={'.':null,'o':'#2a1c16','R':'#e85d5d','W':'#fff6e9','B':'#4a7ad8'};
+const SP_BALL=[
+"....oooo......","..ooRRRRoo....",".oRRWWWWRRo...","oRRWWBBWWRRo..","oRWWBBBBWWRo..","oRWBBRRBBWRo..",
+"oRWBBRRBBWRo..","oRWWBBBBWWRo..","oRRWWBBWWRRo..",".oRRWWWWRRo...","..ooRRRRoo....","....oooo......",
+"..............",".............."];
+
+const OBJ_LIB={
+  butterfly:{grid:SP_BFLY,pal:BFLY,px:16,size:90},
+  tree:{grid:SP_TREE,pal:TREE,px:28,size:340},
+  sushi:{grid:SP_SUSHI,pal:SUSHI,px:20,size:130},
+  rat:{grid:SP_RAT,pal:RAT,px:16,size:95},
+  dog:{grid:SP_DOG,pal:DOG,px:22,size:150},
+  gcat:{grid:SP_GCAT,pal:GCAT,px:18,size:130},
+  flower:{grid:SP_FLOWER,pal:FLOWER,px:14,size:90},
+  glass:{grid:SP_GLASS,pal:GLASS,px:12,size:70},
+  house:{grid:SP_HOUSE,pal:HOUSE,px:22,size:180},
+  table:{grid:SP_TABLE,pal:TABLE,px:24,size:200},
+  ball:{grid:SP_BALL,pal:BALL,px:14,size:80}
+};
+function buildObj(key){
+  const o=OBJ_LIB[key]; if(!o) return null;
+  const cv=makeObjCanvas(o.grid,o.pal,o.px,o.size);
+  cv.id='sceneObj';
+  return cv;
+}
+
+/* ============================================================
+   2. ДАННЫЕ СТРАНИЦ
+   bg: функция-стиль фона | obj: эмодзи-объект | act: что делает котик
+   ============================================================ */
+const HEART = " \u2764\ufe0f";
+const PAGES = [
+ { // 1
+   text:"О ты здесь :) Я как раз хотела тебе кое-что рассказать… Прежде, чем я тебе кое-что скажу, хочу показать, за что я тебе благодарна. Пусть эти благодарности сохранятся здесь))) мало, что случится, а так они сохранятся здесь навсегда. И, когда тебе будет грустно, ты можешь открыть эту страничку и прочитать это еще раз"+HEART,
+   sky:'day', act:'chase'
+ },
+ { text:"Сперва хочу поблагодарить тебя за твою проявленную ко мне любовь, нежность и ласку. Именно они заставляют меня чувствовать себя нужной и любимой. Все котики любят это)))",
+   sky:'day', obj:'butterfly', act:'play' },
+ { text:"Я тебе очень благодарна, за то, что ты всегда веришь в меня и поддерживаешь, когда у меня опускаются лапки. Мне очень тяжело, но с твоей помощью у меня появляются силы двигаться дальше. Когда я падаю, ты помогаешь мне подняться, за это я тебе тоже очень благодарна.",
+   sky:'day', obj:'tree', act:'climb' },
+ { text:"Хочу тебя поблагодарить за твою заботу обо мне. Когда я ем всякую гадость или не сплю по ночам, ты пытаешься вразумить меня и сделать мне лучше. Я хоть и не слушаюсь, но очень стараюсь к этому прийти",
+   sky:'day', obj:'sushi', act:'eat' },
+ { text:"Это конечно странно))) Но хочу поблагодарить тебя за твое умение усмирять мои детские капризы. Я правда стараюсь вести себя по взрослому, но иногда пубертат лезет из меня. Спасибо тебе за это чувство – испытывать какую-то детскую уязвимость. Надеюсь, я когда-нибудь вырасту… ",
+   sky:'day', obj:'rat', act:'play' },
+ { text:"Хочу поблагодарить тебя за общие моменты, которые мы переживали. За встречи, за долгие и интересные переписки, за многочасовые телефонные созвоны, за разговоры на кухне до 6 утра, случайные шутки, взгляды, которые понятны только нам двоим. За то, что из обычных дней мы создаем что-то своё.",
+   sky:'sunset', act:'watch' },
+ { text:"Хочу поблагодарить тебя за твое терпение. За то, что ты выдерживаешь сложные разговоры, мои перепады настроения, моменты закрытости, молчания, обид или тревоги. За то, что не уходишь сразу, когда становится трудно, а старается понять, поговорить, найти путь друг к другу. За то, что ты выбираешь не сдаваться там, где другим было бы проще. ",
+   sky:'day', obj:'dog', act:'hiss' },
+ { text:"Благодарю тебя за то, что с тобой можно быть настоящей. Не идеальной, не всегда весёлой, не всегда спокойной, не всегда уверенной. Можно быть уставшей, ранимой, странной, эмоциональной, смешной, молчаливой, тревожной — и всё равно чувствовать, что тебя любят. Это очень ценно: быть рядом с человеком и не бояться показать себя настоящую.",
+   sky:'day', obj:'ball', act:'play' },
+ { text:"Спасибо тебе за то, что учишь меня любить. Любить глубже, бережнее, честнее. Ты учишь меня слышать, понимать, принимать, заботиться, быть внимательной. Я хоть и не всегда понимаю как, но я очень стараюсь…)))",
+   sky:'day', obj:'gcat', act:'love' },
+ { text:"За твою красоту (немного плагиат :D). Я готова смотреть на тебя постоянно, целовать каждую твою частичку и любоваться ей. Это делает меня счастливее)))",
+   sky:'day', obj:'flower', act:'sniff' },
+ { text:"Я благодарна тебе за то, что выбрала меня. Не один раз, а снова и снова: в сообщениях, во внимании, в заботе, в желании быть рядом, в готовности строить отношения. За то, что среди множества людей именно я стала для тебя особенной.",
+   sky:'day', act:'spin' },
+ { text:"Благодарна тебе за близость. Не только физическую, но и душевную. За то, что между вами есть связь, которую трудно объяснить словами. За то, что иногда достаточно просто быть рядом, чтобы стало хорошо.",
+   sky:'day', obj:'table', act:'knock' },
+ { text:"Спасибо тебе, что создаешь ощущение безопасности рядом с тобой)) За то, что с тобой можно говорить о важном, делиться переживаниями, открывать сердце. За то, что рядом с тобой я могу чувствовать себя защищенной эмоционально. За то, что ты становишься человеком, к которому хочется прийти не только с радостью, но и с болью.",
+   sky:'day', obj:'house', act:'house' },
+ { text:"А сейчас я хотела бы сказать очень важные слова…",
+   sky:'dusk', act:'stare' },
+ { text:"Сейчас мы переживаем не очень сладкий период в наших отношениях, нам обоим страшно потерять друг друга. Каждая пытается доказать свою правоту отстоять свое мнение. Это нормально… У всех бывает кризис. Я слышала, что, когда пара переживает кризис, она становится потом еще крепче и роднее. Я уверена, что мы когда-нибудь к этому придем)))",
+   sky:'dusk', act:'reach' },
+ { text:"Когда я злюсь – это значит, что я очень напугана, что я останусь одна и у меня никогда не будет любви и ласки. Иногда я не умею выражать свои эмоции, страхи или желания. Наверно, я хотела бы, чтобы меня понимали без объяснений, но сейчас рационально понимаю, что нужно уметь правильно доносить свои мысли. Я очень стараюсь, но иногда захожу в тупик((( В душе я очень боюсь тебя потерять, поэтому стараюсь удержать тебя и заставить меня любить через злость. Но так нельзя… Нужно уметь разговаривать и объяснять, что я хотела бы. Я очень хотела бы восстановить нашу былую связь и вновь оказаться в нежности и ласке. Ведь котики любят это))) а котики любят тебя",
+   sky:'night', act:'scared' },
+ { text:"Я хочу искренне попросить у тебя прощения за всю боль и царапки, которые тебе причинила. Очень понимаю, что ранам нужно время зажить, но я готова их зализать. Надеюсь, мы забудем все обиды, которые держим на друг друга… Я готова идти на встречу!",
+   sky:'dusk', act:'sad' },
+ { text:"Будем мириться?",
+   sky:'sunset', act:'closeup', choice:true },
+ { text:"", sky:'night', act:'credits', credits:true }
+];
+
+/* ============================================================
+   3. ФОНЫ
+   ============================================================ */
+function skyCSS(type){
+  switch(type){
+    case 'sunset': return 'linear-gradient(#5a4a7a 0%, #c97b6a 45%, #f0a560 68%, #ffd98a 82%)';
+    case 'dusk':   return 'linear-gradient(#2e2f5e 0%, #5a5a8c 50%, #b97a8a 85%)';
+    case 'night':  return 'linear-gradient(#0c1230 0%, #1b2350 60%, #2c3566 100%)';
+    default:       return 'linear-gradient(#8fd0ff 0%, #bfe8ff 55%, #e8f7ff 78%)';
+  }
+}
+function sunEl(){
+  const s=document.createElement('div');
+  s.style.cssText='position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);'+
+    'width:90px;height:90px;border-radius:50%;background:#fff4c2;'+
+    'box-shadow:0 0 60px 30px rgba(255,230,150,.55);z-index:2;';
+  return s;
+}
+function starsEl(){
+  const w=document.createElement('div'); w.style.cssText='position:absolute;inset:0;z-index:1;';
+  for(let i=0;i<40;i++){
+    const st=document.createElement('div');
+    st.style.cssText='position:absolute;width:2px;height:2px;background:#fff;'+
+      'left:'+(Math.random()*100)+'%;top:'+(Math.random()*55)+'%;opacity:'+(.4+Math.random()*.6)+';'+
+      'box-shadow:0 0 4px #fff;animation:blink '+(1+Math.random()*2)+'s steps(1) infinite;';
+    w.appendChild(st);
+  }
+  return w;
+}
+
+/* ============================================================
+   4. СБОРКА СЦЕНЫ
+   ============================================================ */
+const app=document.getElementById('app');
+let idx=0, typing=false, typeTimer=null, chosen=false;
+
+function buildScene(){
+  const old=document.querySelector('.scene'); if(old) old.remove();
+  const p=PAGES[idx];
+
+  const sc=document.createElement('div'); sc.className='scene active';
+  const sky=document.createElement('div'); sky.className='sky';
+  sky.style.background=skyCSS(p.sky);
+  sc.appendChild(sky);
+
+  if(p.sky==='sunset') sc.appendChild(sunEl());
+  if(p.sky==='night'||p.sky==='dusk') sc.appendChild(starsEl());
+
+  const ground=document.createElement('div'); ground.className='ground';
+  sc.appendChild(ground);
+
+  if(p.obj){
+    const o=buildObj(p.obj);
+    if(o){
+      o.style.cssText+='position:absolute;bottom:18%;right:18%;z-index:14;image-rendering:pixelated;'+
+        'filter:drop-shadow(0 5px 3px rgba(0,0,0,.25));';
+      if(p.obj==='tree'){ o.style.bottom='17%'; o.style.right='12%'; o.id='sceneObj'; o.dataset.tree='1'; }
+      if(p.obj==='house'){ o.style.bottom='17%'; o.style.right='13%'; }
+      if(p.obj==='butterfly'){ o.style.bottom='44%'; o.style.right='26%'; o.style.animation='flutter 1.6s ease-in-out infinite'; }
+      if(p.obj==='table'){ o.style.right='14%'; o.style.bottom='18%'; }
+      if(p.obj==='flower'){ o.style.bottom='17%'; o.style.right='24%'; }
+      if(p.obj==='glass'){ o.style.bottom='18%'; o.style.right='26%'; }
+      sc.appendChild(o);
+    }
+  }
+
+  if(p.text){
+    const tw=document.createElement('div'); tw.className='term-wrap';
+    const t=document.createElement('div'); t.className='term';
+    t.innerHTML='<div class="bar"><i></i><i></i><i></i></div><span id="typed"></span><span class="caret">█</span>';
+    tw.appendChild(t); sc.appendChild(tw);
+  }
+
+  if(p.choice){ buildChoices(sc); }
+  if(p.credits){ buildCredits(sc); }
+
+  app.insertBefore(sc, document.getElementById('progress'));
+  paintProgress();
+  return p;
+}
+
+/* ============================================================
+   5. ПРОГРЕСС-ТОЧКИ
+   ============================================================ */
+const progressEl=document.getElementById('progress');
+function paintProgress(){
+  progressEl.innerHTML='';
+  for(let i=0;i<PAGES.length;i++){
+    const d=document.createElement('i'); if(i===idx) d.className='on';
+    progressEl.appendChild(d);
+  }
+}
+
+/* ============================================================
+   6. ПЕЧАТНАЯ МАШИНКА
+   ============================================================ */
+function typeText(str, onDone){
+  const el=document.getElementById('typed'); if(!el){ if(onDone)onDone(); return; }
+  el.textContent=''; typing=true;
+  let i=0;
+  clearInterval(typeTimer);
+  typeTimer=setInterval(()=>{
+    el.textContent+=str[i++];
+    if(i>=str.length){
+      clearInterval(typeTimer); typing=false;
+      if(onDone) onDone();
+    }
+  }, 38);
+}
+function finishTyping(){
+  // клик во время печати — мгновенно дописать
+  if(typing){
+    clearInterval(typeTimer); typing=false;
+    const el=document.getElementById('typed');
+    if(el) el.textContent=PAGES[idx].text;
+  }
+}
+
+/* ============================================================
+   7. ДВИЖЕНИЕ КОТИКА
+   ============================================================ */
+let catX=-160, catY=0, catTargetX=0;
+function groundY(){ return window.innerHeight*0.82 - cat.offsetHeight; }
+function placeCat(x,y){
+  catX=x; catY=(y===undefined)?groundY():y;
+  cat.style.left=catX+'px'; cat.style.top=catY+'px';
+}
+function faceRight(){ cat.classList.remove('flip'); }
+function faceLeft(){ cat.classList.add('flip'); }
+
+// котик прибегает слева к позиции (игровой walk-цикл + плавное торможение)
+function runInFromLeft(targetX, cb){
+  faceRight();
+  placeCat(-200, groundY());
+  let x=-200, frame=0;
+  const speed=11;
+  const step=()=>{
+    const remaining=targetX-x;
+    // плавное торможение у цели
+    const v = remaining<120 ? Math.max(2.5, speed*(remaining/120)) : speed;
+    x+=v;
+    frame++;
+    // чередуем кадры ходьбы каждые ~5 тиков
+    if(frame%5===0){ walkPhase^=1; }
+    catState='walk'; paintCat();
+    // лёгкое вертикальное покачивание при шаге
+    const bob = (frame%10<5)? -3 : 0;
+    placeCat(x, groundY()+bob);
+    if(x>=targetX-1){
+      placeCat(targetX, groundY());
+      catState='sit'; paintCat();
+      if(cb)cb();
+      return;
+    }
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+// котик убегает в сторону (ускоряется)
+function runOut(dir, cb){
+  if(dir>0) faceRight(); else faceLeft();
+  let x=catX, frame=0, v=6;
+  const target = dir>0 ? window.innerWidth+220 : -220;
+  const step=()=>{
+    v=Math.min(20, v+0.9); // разгон
+    x+=v*dir;
+    frame++;
+    if(frame%4===0){ walkPhase^=1; }
+    catState='walk'; paintCat();
+    const bob=(frame%8<4)? -3:0;
+    placeCat(x, groundY()+bob);
+    if((dir>0 && x>=target)||(dir<0 && x<=target)){ if(cb)cb(); return; }
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+/* поведение котика для конкретной сцены (после прибегания) */
+let behaviorTimers=[], behaviorGen=0;
+function clearBehavior(){
+  behaviorGen++; // инвалидируем все запущенные циклы
+  behaviorTimers.forEach(t=>{ clearInterval(t); clearTimeout(t); });
+  behaviorTimers=[];
+}
+
+function startBehavior(p){
+  clearBehavior();
+  switch(p.act){
+    case 'chase': enableChase(); break;            // стр.1 — за курсором
+    case 'climb': behaviorClimb(); break;          // дерево
+    case 'eat':   behaviorEat(); break;            // суши: ест, переедает, плачет
+    case 'spin':  behaviorSpin(); break;           // крутится за хвостом
+    case 'knock': behaviorKnock(); break;          // скидывает стакан со стола
+    case 'scared':behaviorScaredCorner(); break;   // забивается в угол
+    case 'love':  behaviorLove(); break;           // влюбляется (сердечки)
+    case 'hiss':  behaviorHiss(); break;           // шипит на собаку
+    case 'play':  behaviorPlay(); break;           // играет с объектом (бабочка/крыска/мячик)
+    case 'sniff': behaviorSniff(); break;          // нюхает цветок
+    case 'watch': behaviorWatch(); break;          // смотрит на закат
+    case 'house': behaviorHouse(); break;          // заглядывает в домик
+    case 'reach': behaviorReach(); break;          // тянется к тексту, грустно мяукает
+    case 'sad':   behaviorSad(); break;            // грустно смотрит большими глазами
+    case 'stare': behaviorStare(); break;          // внимательно смотрит
+    case 'closeup': closeupCat(); break;
+    default:
+      catState='sit'; paintCat();
+      cat.classList.add('cat-bob');
+      behaviorTimers.push(setTimeout(()=>cat.classList.remove('cat-bob'),1200));
+  }
+}
+
+// прыгучая игра с объектом справа: котик подскакивает к нему и обратно
+function behaviorPlay(){
+  const obj=document.getElementById('sceneObj');
+  let homeX=catX, n=0;
+  faceRight();
+  const t=setInterval(()=>{
+    n++;
+    catState=(n%2)?'jump':'sit'; paintCat();
+    const off=(n%2)? 18 : 0;
+    placeCat(homeX+off, groundY()-(n%2?14:0));
+    if(n%6===0 && obj){ // объект дёргается от игры
+      obj.style.transition='transform .15s';
+      obj.style.transform='rotate('+((n/6%2)?8:-8)+'deg)';
+    }
+  },240);
+  behaviorTimers.push(t);
+}
+// нюхает цветок: наклоняется к нему
+function behaviorSniff(){
+  catState='sit'; paintCat(); faceRight();
+  let n=0;
+  const t=setInterval(()=>{ n++; placeCat(catX, groundY()+(n%2?4:0)); },500);
+  behaviorTimers.push(t);
+  const h=setInterval(()=>spawnHearts(catX+cat.offsetWidth*0.7, catY+30, 1),900);
+  behaviorTimers.push(h);
+}
+// смотрит на закат: сидит спокойно, изредка моргает (happy), мурлычет
+function behaviorWatch(){
+  faceRight(); catState='sit'; paintCat();
+  let n=0;
+  const t=setInterval(()=>{ n++; catState=(n%6===0)?'happy':'sit'; paintCat(); },600);
+  behaviorTimers.push(t);
+}
+// заглядывает в домик: подходит и выглядывает (покачивается)
+function behaviorHouse(){
+  catState='sit'; paintCat(); faceRight();
+  let n=0;
+  const t=setInterval(()=>{ n++; placeCat(catX+(n%2?4:0), groundY()); },420);
+  behaviorTimers.push(t);
+}
+// тянется вверх к тексту и грустно мяукает
+function behaviorReach(){
+  faceRight();
+  let n=0;
+  const t=setInterval(()=>{
+    n++;
+    catState=(n%2)?'jump':'sit'; paintCat();
+    placeCat(catX, groundY()-(n%2?22:0));
+  },650);
+  behaviorTimers.push(t);
+}
+// грустно смотрит большими глазами через экран
+function behaviorSad(){
+  catState='sit'; paintCat(); faceRight();
+  let n=0;
+  const t=setInterval(()=>{ n++; placeCat(catX, groundY()+(n%2?2:0)); },700);
+  behaviorTimers.push(t);
+}
+// внимательно смотрит на текст (стр.14)
+function behaviorStare(){
+  catState='sit'; paintCat(); faceRight();
+}
+// забивается в угол от страха, шипит и трясётся (стр.16)
+function behaviorScaredCorner(){
+  const myGen=behaviorGen, alive=()=>myGen===behaviorGen;
+  const cornerX=window.innerWidth*0.05;
+  faceLeft();
+  let x=catX, f=0;
+  const run=()=>{
+    if(!alive()) return;
+    x-=12; f++;
+    if(f%4===0) walkPhase^=1;
+    catState='walk'; paintCat();
+    placeCat(x, groundY()+((f%8<4)?-3:0));
+    if(x<=cornerX){ placeCat(cornerX,groundY()); cower(); return; }
+    requestAnimationFrame(run);
+  };
+  const cower=()=>{
+    if(!alive()) return;
+    catState='scared'; paintCat();
+    let n=0;
+    const t=setInterval(()=>{ if(!alive()){clearInterval(t);return;} placeCat(cornerX+((n++%2)?-3:3), groundY()); },80);
+    behaviorTimers.push(t);
+  };
+  run();
+}
+
+function behaviorClimb(){
+  const tree=document.querySelector('[data-tree]');
+  const groundTop=groundY();
+  // подойти вплотную к стволу дерева
+  let baseX=catX, climbTopY=groundTop - cat.offsetHeight*0.9;
+  if(tree){
+    const r=tree.getBoundingClientRect();
+    baseX=r.left + r.width*0.5 - cat.offsetWidth*0.5;
+    // лезет до уровня кроны дерева (примерно середина-верх дерева)
+    climbTopY=Math.max(window.innerHeight*0.10, r.top + r.height*0.18);
+  }
+  const myGen=behaviorGen;
+  const alive=()=>myGen===behaviorGen;
+  const loop=()=>{
+    if(!alive()) return;
+    // 1. подходит к дереву (walk)
+    faceRight();
+    let x=catX, f=0;
+    const goToTree=()=>{
+      if(!alive()) return;
+      const dx=baseX-x;
+      if(Math.abs(dx)<6){ startClimb(); return; }
+      x+=Math.sign(dx)*8; f++;
+      if(f%5===0) walkPhase^=1;
+      catState='walk'; paintCat();
+      placeCat(x, groundTop+((f%10<5)?-3:0));
+      requestAnimationFrame(goToTree);
+    };
+    const startClimb=()=>{
+      if(!alive()) return;
+      placeCat(baseX, groundTop);
+      // 2. карабкается вверх рывками
+      catState='climb'; paintCat();
+      let y=groundTop;
+      const up=()=>{
+        if(!alive()) return;
+        y-=10;
+        placeCat(baseX+((Math.round(y/8)%2)?3:-3), y);
+        if(y<=climbTopY){ cling(); return; }
+        behaviorTimers.push(setTimeout(()=>requestAnimationFrame(up),60));
+      };
+      requestAnimationFrame(up);
+    };
+    const cling=()=>{
+      if(!alive()) return;
+      // 3. цепляется и тянется к буквам (~2 сек), дрожит от усилия
+      placeCat(baseX, climbTopY);
+      let n=0;
+      const wob=setInterval(()=>{ if(!alive()){clearInterval(wob);return;} placeCat(baseX+((n++%2)?2:-2), climbTopY); },120);
+      behaviorTimers.push(wob);
+      behaviorTimers.push(setTimeout(()=>{ clearInterval(wob); fall(); },2000));
+    };
+    const fall=()=>{
+      if(!alive()) return;
+      // 4. срывается и падает
+      catState='jump'; paintCat();
+      let y=climbTopY, vy=2;
+      const down=()=>{
+        if(!alive()) return;
+        vy+=2.2; y+=vy;
+        placeCat(baseX, Math.min(groundTop,y));
+        if(y>=groundTop){ land(); return; }
+        requestAnimationFrame(down);
+      };
+      requestAnimationFrame(down);
+    };
+    const land=()=>{
+      if(!alive()) return;
+      // 5. приземляется, отряхивается (дрожит), пауза, и снова
+      placeCat(baseX, groundTop);
+      catState='scared'; paintCat();
+      let n=0;
+      const sh=setInterval(()=>{ if(!alive()){clearInterval(sh);return;} placeCat(baseX+((n++%2)?-3:3), groundTop); },70);
+      behaviorTimers.push(sh);
+      behaviorTimers.push(setTimeout(()=>{
+        clearInterval(sh); placeCat(baseX,groundTop);
+        catState='sit'; paintCat();
+        behaviorTimers.push(setTimeout(loop,700));
+      },900));
+    };
+    goToTree();
+  };
+  loop();
+}
+function behaviorEat(){
+  faceRight();
+  let n=0;
+  // фаза 1: жадно ест (быстро наклоняется)
+  const eat=setInterval(()=>{
+    n++;
+    catState=(n%2)?'jump':'sit'; paintCat();
+    placeCat(catX, groundY()+(n%2?6:0));
+  },150);
+  behaviorTimers.push(eat);
+  // фаза 2: переел — ложится и "плачет" (слёзки-капельки)
+  behaviorTimers.push(setTimeout(()=>{
+    clearInterval(eat);
+    catState='scared'; paintCat(); // понурая поза
+    placeCat(catX, groundY()+8);
+    const cry=setInterval(()=>{
+      const d=document.createElement('div');
+      d.textContent='💧';
+      d.style.cssText='position:fixed;left:'+(catX+cat.offsetWidth*0.4)+'px;top:'+(catY+40)+'px;'+
+        'font-size:16px;z-index:30;transition:transform 1s, opacity 1s;pointer-events:none;';
+      document.body.appendChild(d);
+      requestAnimationFrame(()=>{ d.style.transform='translateY(40px)'; d.style.opacity='0'; });
+      setTimeout(()=>d.remove(),1100);
+    },800);
+    behaviorTimers.push(cry);
+  },2400));
+}
+function behaviorSpin(){
+  let deg=0;
+  const t=setInterval(()=>{ deg+=30; cat.style.transform='rotate('+deg+'deg)'; },90);
+  behaviorTimers.push(t);
+  behaviorTimers.push(setTimeout(()=>{clearInterval(t);cat.style.transform='';},2000));
+}
+function behaviorKnock(){
+  const table=document.getElementById('sceneObj');
+  // котик запрыгивает на стол и лапой скидывает стакан
+  behaviorTimers.push(setTimeout(()=>{
+    catState='jump';paintCat();placeCat(catX,groundY()-70);
+    // отдельный стакан, который падает со стола
+    const g=buildObj('glass');
+    if(g && table){
+      const r=table.getBoundingClientRect();
+      g.style.cssText+='position:fixed;left:'+(r.left+r.width*0.4)+'px;top:'+(r.top-10)+'px;z-index:16;'+
+        'transition:transform 1s ease-in, opacity 1s;image-rendering:pixelated;';
+      document.body.appendChild(g);
+      behaviorTimers.push(setTimeout(()=>{
+        g.style.transform='translateY('+(window.innerHeight*0.5)+'px) rotate(200deg)';
+        g.style.opacity='0';
+      },120));
+      behaviorTimers.push(setTimeout(()=>g.remove(),1300));
+    }
+    behaviorTimers.push(setTimeout(()=>{catState='sit';paintCat();placeCat(catX,groundY());},1200));
+  },900));
+}
+function behaviorLove(){
+  catState='happy'; paintCat();
+  cat.classList.add('cat-bob');
+  const t=setInterval(()=>spawnHearts(catX+cat.offsetWidth/2, catY+20, 2),700);
+  behaviorTimers.push(t);
+}
+function behaviorHiss(){
+  // котик шипит: дёргается, спинка дыбом (используем scared-спрайт коротко)
+  let n=0;
+  catState='scared'; paintCat();
+  const t=setInterval(()=>{ cat.style.transform='translateX('+(n%2?'-4px':'4px')+')'+(cat.classList.contains('flip')?' scaleX(-1)':''); n++; },90);
+  behaviorTimers.push(t);
+}
+function shiver(){
+  let n=0;
+  const t=setInterval(()=>{ cat.style.transform='translateX('+(n%2?'-3px':'3px')+')'; n++; },80);
+  behaviorTimers.push(t);
+}
+function closeupCat(){
+  clearBehavior();
+  catState='happy'; paintCat();
+  cat.style.transition='all .6s';
+  cat.style.width='240px'; cat.style.height='300px';
+  cat.width=240;cat.height=300;drawSprite(cat,catGrid(),240/CAT_PX);
+  placeCat(window.innerWidth/2-120, window.innerHeight*0.30);
+  cat.classList.remove('flip');
+}
+
+/* ---- стр.1: котик гоняется за курсором ---- */
+let chaseOn=false, mouseX=0, mouseY=0;
+function enableChase(){ chaseOn=true; chaseLoop(); }
+function disableChase(){ chaseOn=false; }
+document.addEventListener('mousemove', e=>{ mouseX=e.clientX; mouseY=e.clientY; });
+document.addEventListener('touchmove', e=>{
+  if(e.touches[0]){ mouseX=e.touches[0].clientX; mouseY=e.touches[0].clientY; }
+},{passive:true});
+
+function chaseLoop(){
+  if(!chaseOn) return;
+  const catCenterY = catY + cat.offsetHeight/2;
+  const skyZone = window.innerHeight*0.55;
+  if(mouseY < skyZone){
+    // курсор в небе — котик стоит и смотрит вверх
+    catState='sit'; paintCat();
+    if(mouseX>catX) faceRight(); else faceLeft();
+  } else {
+    // на уровне котика — пытается поймать
+    catState='jump'; paintCat();
+    const dx = mouseX - (catX+cat.offsetWidth/2);
+    if(dx>0) faceRight(); else faceLeft();
+    catX += dx*0.08;
+    cat.style.left=catX+'px';
+    // поймал?
+    if(Math.abs(dx)<40 && Math.abs(mouseY-catCenterY)<80){
+      catchCursor();
+    }
+  }
+  requestAnimationFrame(chaseLoop);
+}
+let cursorHidden=false;
+function catchCursor(){
+  if(cursorHidden) return;
+  cursorHidden=true;
+  document.body.style.cursor='none';
+  spawnHearts(mouseX,mouseY,6);
+  // вернётся когда подвигаешь
+  let sx=mouseX, sy=mouseY;
+  const watch=setInterval(()=>{
+    if(Math.abs(mouseX-sx)>40 || Math.abs(mouseY-sy)>40){
+      cursorHidden=false; document.body.style.cursor=''; clearInterval(watch);
+    }
+  },120);
+}
+
+/* ============================================================
+   8. ВЫБОР (стр.18)
+   ============================================================ */
+function buildChoices(sc){
+  // обе кнопки на одной горизонтальной линии
+  const rowTopPct = 64; // уровень по вертикали (% от высоты экрана)
+  const yes=document.createElement('button'); yes.id='yesBtn'; yes.textContent='Да!';
+  const no=document.createElement('button'); no.id='noBtn'; no.textContent='Нет, я редиска';
+
+  function rowTopPx(){ return window.innerHeight*rowTopPct/100; }
+  // позиционируем обе кнопки fixed на одном уровне
+  yes.style.position='fixed';
+  yes.style.top=rowTopPx()+'px';
+  no.style.position='fixed';
+  no.style.top=rowTopPx()+'px';
+  sc.appendChild(yes); sc.appendChild(no);
+
+  // начальная раскладка: Да слева, Нет справа, на одной линии
+  function layout(){
+    const t=rowTopPx();
+    yes.style.top=t+'px'; no.style.top=t+'px';
+    yes.style.left=Math.round(window.innerWidth*0.5 - yes.offsetWidth - 20)+'px';
+    no.style.left=Math.round(window.innerWidth*0.5 + 20)+'px';
+  }
+  requestAnimationFrame(layout);
+
+  // "Нет" уворачивается, но СТРОГО на том же уровне (двигается только по X)
+  const flee=(cx,cy)=>{
+    const r=no.getBoundingClientRect();
+    const ncx=r.left+r.width/2, ncy=r.top+r.height/2;
+    const dist=Math.hypot(cx-ncx, cy-ncy);
+    if(dist<150){
+      // прыгаем по горизонтали в противоположную от курсора сторону
+      const margin=20, w=no.offsetWidth;
+      let nx;
+      if(cx < window.innerWidth/2){
+        nx = window.innerWidth - w - margin - Math.random()*60; // уходим вправо
+      } else {
+        nx = margin + Math.random()*60; // уходим влево
+      }
+      nx=Math.max(margin, Math.min(window.innerWidth-w-margin, nx));
+      no.style.left=nx+'px';
+      no.style.top=rowTopPx()+'px'; // уровень фиксируем
+    }
+  };
+  const mh=e=>{ if(document.body.contains(no)) flee(e.clientX,e.clientY); };
+  document.addEventListener('mousemove', mh);
+  document.addEventListener('touchmove', e=>{ if(e.touches[0]) flee(e.touches[0].clientX,e.touches[0].clientY); },{passive:true});
+  no.addEventListener('mouseover', e=>flee(e.clientX,e.clientY));
+  no.addEventListener('click', e=>{ e.preventDefault(); flee(e.clientX,e.clientY); });
+  window.addEventListener('resize', layout);
+
+  yes.addEventListener('click', ()=>{
+    chosen=true;
+    spawnHearts(window.innerWidth/2, window.innerHeight/2, 30);
+    document.removeEventListener('mousemove', mh);
+    if(no.parentNode) no.remove();
+    yes.textContent='МИР! \u2764\ufe0f';
+    yes.style.left=Math.round(window.innerWidth*0.5 - yes.offsetWidth/2)+'px';
+    catState='happy'; paintCat();
+    cat.classList.add('cat-bob');
+    updateNav();
+  });
+}
+
+/* ============================================================
+   9. ТИТРЫ (стр.19)
+   ============================================================ */
+function buildCredits(sc){
+  const c=document.createElement('div'); c.style.cssText=
+    'position:absolute;inset:0;z-index:30;display:flex;justify-content:center;color:#ffe9b0;text-align:center;';
+  c.innerHTML='<div class="creditRoll" style="max-width:90vw">'+
+    '<div style="font-family:\'Press Start 2P\';font-size:18px;color:#ffd479;margin-bottom:30px">~ ТИТРЫ ~</div>'+
+    'В главной роли:<br><b>Рыжий Котик</b> 🐱<br><br>'+
+    'Бабочка ... в роли себя<br>'+
+    'Дерево ... упало 3 дубля<br>'+
+    'Суши ... съедены на площадке<br>'+
+    'Белая Крыска ... гонорар: сыр<br>'+
+    'Собака ... всё ещё лает<br>'+
+    'Серая Кошечка ... разбила сердце котику<br>'+
+    'Стакан ... погиб героически 🥛<br><br>'+
+    'Сценарий, режиссура и любовь:<br><b>твоя девушка</b> 💛<br><br>'+
+    'Спецэффекты: 1 (один) котик<br>'+
+    'Бюджет: бесконечная нежность<br><br>'+
+    'Ни одно животное не пострадало…<br>кроме гордости котика на стр.3<br><br>'+
+    '<div style="font-family:\'Press Start 2P\';font-size:13px;color:#ffd479;margin-top:20px">КОТИКИ ЛЮБЯТ ТЕБЯ</div>'+
+    '<div style="margin-top:24px;font-size:22px">🐾 спасибо, что досмотрел(а) 🐾</div>'+
+    '</div>';
+  sc.appendChild(c);
+  // дождик сердечек на титрах
+  const t=setInterval(()=>spawnHearts(Math.random()*window.innerWidth,-20,1),500);
+  behaviorTimers.push(t);
+}
+
+/* ============================================================
+   10. СЕРДЕЧКИ
+   ============================================================ */
+function spawnHearts(x,y,n){
+  const emo=['❤️','🧡','💛','🐾','✨'];
+  for(let i=0;i<n;i++){
+    const h=document.createElement('div'); h.className='heart';
+    h.textContent=emo[Math.floor(Math.random()*emo.length)];
+    h.style.left=(x+(Math.random()*80-40))+'px';
+    h.style.top=(y+(Math.random()*20-10))+'px';
+    h.style.fontSize=(14+Math.random()*16)+'px';
+    h.style.animationDuration=(2.5+Math.random()*2)+'s';
+    document.body.appendChild(h);
+    setTimeout(()=>h.remove(),5000);
+  }
+}
+
+/* ============================================================
+   11. НАВИГАЦИЯ
+   ============================================================ */
+const prevBtn=document.getElementById('prev');
+const nextBtn=document.getElementById('next');
+
+function updateNav(){
+  const p=PAGES[idx];
+  prevBtn.style.display = idx===0 ? 'none' : '';
+  // на странице выбора вперёд нельзя, пока не нажал "Да"
+  if(p.choice){
+    nextBtn.disabled = !chosen;
+  } else {
+    nextBtn.disabled = false;
+  }
+  nextBtn.textContent = (idx===PAGES.length-1) ? 'заново ↺' : 'вперёд ▶';
+}
+
+function goTo(newIdx, dir){
+  // сброс
+  disableChase(); clearBehavior();
+  document.body.style.cursor=''; cursorHidden=false;
+  // вернуть котику обычный размер (после closeup) и состояние
+  cat.style.transition='none'; cat.style.transform='';
+  cat.classList.remove('cat-bob');
+  cat.width=CAT_W;cat.height=CAT_H;
+  cat.style.width=CAT_W+'px';cat.style.height=CAT_H+'px';
+  catState='sit'; paintCat();
+
+  idx=newIdx; chosen=false;
+  const p=buildScene();
+  updateNav();
+
+  // котик прибегает слева (на стр.1 — появляется и сразу гоняется)
+  const targetX = window.innerWidth*0.30;
+  if(idx===0){
+    placeCat(window.innerWidth*0.4, groundY());
+    if(p.text) typeText(p.text);
+    startBehavior(p);
+  } else if(p.act==='closeup'){
+    runInFromLeft(targetX, ()=>{ if(p.text) typeText(p.text); startBehavior(p); });
+  } else {
+    runInFromLeft(targetX, ()=>{
+      if(p.text) typeText(p.text);
+      startBehavior(p);
+    });
+  }
+}
+
+nextBtn.addEventListener('click', ()=>{
+  if(nextBtn.disabled) return;
+  if(typing){ finishTyping(); return; } // первый клик — дописать текст
+  if(idx===PAGES.length-1){ // заново
+    idx=0; goTo(0,1); return;
+  }
+  const next=idx+1;
+  runOut(1, ()=>goTo(next,1)); // убегает вправо
+});
+
+prevBtn.addEventListener('click', ()=>{
+  if(typing){ finishTyping(); return; }
+  if(idx===0) return;
+  const prev=idx-1;
+  runOut(-1, ()=>goTo(prev,-1)); // убегает влево
+});
+
+// клик по тексту — дописать мгновенно
+document.addEventListener('click', e=>{
+  if(typing && e.target.closest('.term')) finishTyping();
+});
+
+window.addEventListener('resize', ()=>{ if(idx>0) placeCat(catX, groundY()); });
+
+/* ============================================================
+   12. СТАРТ
+   ============================================================ */
+document.getElementById('startBtn').addEventListener('click', ()=>{
+  document.getElementById('start').style.display='none';
+  goTo(0,1);
+});
+
+
+
+
+</script>
+</body>
+</html>
